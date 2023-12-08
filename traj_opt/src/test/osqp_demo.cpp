@@ -1,7 +1,6 @@
 #include <iostream>
 #include <math.h>
 #include "osqp_demo.h"
-#include <osqp/osqp.h>
 
 void matrixToArray(const Eigen::MatrixXd &m, OSQPFloat *a)
 {
@@ -9,32 +8,98 @@ void matrixToArray(const Eigen::MatrixXd &m, OSQPFloat *a)
   for (int i = 0; i < m.rows(); i++)
     a[i] = m(i, 0);
 }
-std::shared_ptr<OSQPCscMatrix> eiegnSparseMatrixToCsc(Eigen::SparseMatrix<double> &sparse_matrix)
+/*
+  https://people.sc.fsu.edu/~jburkardt/data/cc/cc.html
+*/
+std::shared_ptr<OSQPCscMatrix> eiegnSparseMatrixToCsc(Eigen::SparseMatrix<double> &A)
 {
-  assert(sparse_matrix.coeffs().size() == sparse_matrix.nonZeros());
-  if (!sparse_matrix.isCompressed())
-    sparse_matrix.makeCompressed();
-  int rows = sparse_matrix.rows();
-  int cols = sparse_matrix.cols();
-  int num_data = sparse_matrix.nonZeros();
+  assert(A.coeffs().size() == A.nonZeros());
+  if (!A.isCompressed())
+    A.makeCompressed();
+  int rows = A.rows();
+  int cols = A.cols();
+  int num_data = A.nonZeros();
 
-  OSQPCscMatrix *csc = csc_spalloc(static_cast<OSQPInt>(rows),
-                                   static_cast<OSQPInt>(cols), static_cast<OSQPInt>(num_data), 1, 0);
+  std::shared_ptr<OSQPCscMatrix> csc = std::make_shared<OSQPCscMatrix>();
+  csc->m = rows;
+  csc->n = cols;
+  csc->nzmax = num_data;
+  csc->nz = 0;
+  csc->p = static_cast<OSQPInt *>(malloc((cols + 1) * sizeof(OSQPInt)));
+  csc->i = static_cast<OSQPInt *>(malloc(num_data * sizeof(OSQPInt)));
+  csc->x = static_cast<OSQPFloat *>(malloc(num_data * sizeof(OSQPFloat)));
+
   int p_index = 0;
   for (int k = 0; k < cols; k++)
   {
-    csc->p[p_index] = static_cast<OSQPInt>(sparse_matrix.outerIndexPtr()[p_index]);
+    csc->p[p_index] = static_cast<OSQPInt>(A.outerIndexPtr()[k]);
     p_index++;
   }
   csc->p[p_index] = num_data;
 
   for (int i = 0; i < num_data; i++)
   {
-    csc->i[i] = sparse_matrix.innerIndexPtr()[i];
-    csc->x[i] = sparse_matrix.coeffs()[i];
+    csc->i[i] = A.innerIndexPtr()[i];
+    csc->x[i] = A.coeffs()[i];
   }
-  return std::make_shared<OSQPCscMatrix>(*csc);
+  return csc;
 }
+// std::shared_ptr<OSQPCscMatrix> eiegnSparseMatrixToCsc(Eigen::SparseMatrix<double> &eigenSparseMatrix)
+// {
+//   std::shared_ptr<OSQPCscMatrix> osqpSparseMatrix = std::make_shared<OSQPCscMatrix>();
+//   // Copying into a new sparse matrix to be sure to use a CSC matrix
+//   Eigen::SparseMatrix<double, Eigen::ColMajor> colMajorCopy = eigenSparseMatrix;
+
+//   // This may perform memory allocation, but this is already the case for allocating the
+//   // osqpSparseMatrix
+
+//   // get number of row, columns and nonZeros from Eigen SparseMatrix
+//   int rows = colMajorCopy.rows();
+//   int cols = colMajorCopy.cols();
+//   int numberOfNonZeroCoeff = colMajorCopy.nonZeros();
+
+//   // get innerr and outer index
+//   const int *outerIndexPtr = colMajorCopy.outerIndexPtr();
+//   const int *innerNonZerosPtr = colMajorCopy.innerNonZeroPtr();
+
+//   // instantiate csc matrix
+//   // MEMORY ALLOCATION!!
+
+//   osqpSparseMatrix = std::make_shared<OSQPCscMatrix>(*csc_spalloc(rows, cols, numberOfNonZeroCoeff, 1, 0));
+
+//   int innerOsqpPosition = 0;
+//   for (int k = 0; k < cols; k++)
+//   {
+//     if (colMajorCopy.isCompressed())
+//     {
+//       osqpSparseMatrix->p[k] = static_cast<int>(outerIndexPtr[k]);
+//     }
+//     else
+//     {
+//       if (k == 0)
+//       {
+//         osqpSparseMatrix->p[k] = 0;
+//       }
+//       else
+//       {
+//         osqpSparseMatrix->p[k] = osqpSparseMatrix->p[k - 1] + innerNonZerosPtr[k - 1];
+//       }
+//     }
+//     for (typename Eigen::SparseMatrix<double, Eigen::ColMajor>::InnerIterator it(colMajorCopy, k);
+//          it;
+//          ++it)
+//     {
+//       osqpSparseMatrix->i[innerOsqpPosition] = static_cast<int>(it.row());
+//       osqpSparseMatrix->x[innerOsqpPosition] = static_cast<float>(it.value());
+//       innerOsqpPosition++;
+//     }
+//   }
+//   osqpSparseMatrix->p[static_cast<int>(cols)] = static_cast<int>(innerOsqpPosition);
+
+//   assert(innerOsqpPosition == numberOfNonZeroCoeff);
+
+//   return osqpSparseMatrix;
+// }
 
 Eigen::SparseMatrix<double> cscToEiegnSparseMatrix(const std::shared_ptr<OSQPCscMatrix> &csc)
 {
@@ -62,6 +127,7 @@ Eigen::SparseMatrix<double> cscToEiegnSparseMatrix(const std::shared_ptr<OSQPCsc
   A.makeCompressed();
   return A;
 }
+
 OSQPInt update_data_mat(OSQPSolver *solver,
                         Eigen::SparseMatrix<double> &Px_new,
                         Eigen::SparseMatrix<double> &Ax_new,
@@ -72,7 +138,7 @@ OSQPInt update_data_mat(OSQPSolver *solver,
   A_csc = eiegnSparseMatrixToCsc(Ax_new);
   OSQPInt P_new_n = static_cast<OSQPInt>(Px_new.nonZeros());
   OSQPInt A_new_n = static_cast<OSQPInt>(Ax_new.nonZeros());
-  osqp_update_data_mat(solver, P_csc->x, OSQP_NULL, P_new_n, A_csc->x, OSQP_NULL, A_new_n);
+  return osqp_update_data_mat(solver, P_csc->x, OSQP_NULL, P_new_n, A_csc->x, OSQP_NULL, A_new_n);
 }
 void printCsc(const std::shared_ptr<OSQPCscMatrix> csc,
               const std::string &desc)
@@ -105,11 +171,20 @@ void printEigenSparseMatrix(const Eigen::SparseMatrix<double> &A, const std::str
 }
 void test()
 {
-  Eigen::SparseMatrix<double> A(3, 4);
-  A.insert(0, 0) = 10;
-  A.insert(2, 0) = 11;
-  A.insert(2, 2) = 8;
-  A.insert(0, 3) = 3;
+  Eigen::SparseMatrix<double> A(4, 6);
+  A.insert(0, 0) = 11;
+  A.insert(0, 3) = 14;
+  A.insert(0, 5) = 16;
+  A.insert(1, 1) = 22;
+  A.insert(1, 4) = 25;
+  A.insert(1, 5) = 26;
+  A.insert(2, 2) = 33;
+  A.insert(2, 3) = 34;
+  A.insert(2, 5) = 36;
+  A.insert(3, 0) = 41;
+  A.insert(3, 2) = 43;
+  A.insert(3, 3) = 44;
+  A.insert(3, 5) = 46;
   A.makeCompressed();
 
   printEigenSparseMatrix(A, "A");
@@ -338,6 +413,18 @@ int TestCase::updateMatrix()
 
   return static_cast<int>(exitflag);
 }
+/*
+  kroneckerProduct:
+  A ⊗ B = | a11*B  a12*B  ...  a1n*B |
+          | a21*B  a22*B  ...  a2n*B |
+          | ...    ...    ...  ...   |
+          | am1*B  am2*B  ...  amn*B |
+  A = Eigen::MatrixXd::Identity();
+  A = | B 0 0 0 |
+      | 0 B 0 0 |
+      | 0 0 B 0 |
+      | 0 0 0 B |
+*/
 Eigen::MatrixXd kroneckerProduct_eye(const Eigen::MatrixXd &lhs,
                                      const Eigen::MatrixXd &rhs)
 {
@@ -351,19 +438,38 @@ Eigen::MatrixXd kroneckerProduct_eye(const Eigen::MatrixXd &lhs,
   //           << out << std::endl;
   return out;
 }
-Eigen::MatrixXd kroneckerProduct_subEye(const Eigen::MatrixXd &lhs,
-                                        const Eigen::MatrixXd &rhs)
+/*
+  kroneckerProduct:
+  A ⊗ B = | a11*B  a12*B  ...  a1n*B |
+          | a21*B  a22*B  ...  a2n*B |
+          | ...    ...    ...  ...   |
+          | am1*B  am2*B  ...  amn*B |
+  A = subDiagIdentyMatrix();
+  A = | 0 0 0 0 |
+      | B 0 0 0 |
+      | 0 B 0 0 |
+      | 0 0 B 0 |
+      | 0 0 0 B |
+*/
+Eigen::MatrixXd kroneckerProduct_subEye(const Eigen::MatrixXd &A,
+                                        const Eigen::MatrixXd &B)
 {
-  Eigen::MatrixXd out(lhs.rows() * rhs.rows(), lhs.cols() * rhs.cols());
+  Eigen::MatrixXd out(A.rows() * B.rows(), A.cols() * B.cols());
   out.setZero();
-  for (int i = 1; i < lhs.rows(); i++)
+  for (int i = 1; i < A.rows(); i++)
   {
-    out.block(i * rhs.rows(), (i - 1) * rhs.cols(), rhs.rows(), rhs.cols()) = lhs(i, i - 1) * rhs;
+    out.block(i * B.rows(), (i - 1) * B.cols(), B.rows(), B.cols()) = A(i, i - 1) * B;
   }
-  // std::cout << "kroneckerProduct_subEye size " << out.rows() << " " << out.cols() << "\n"
-  //           << out << std::endl;
   return out;
 }
+/*
+  subDiagIdentyMatrix:
+  | 0 0 0 0 |
+  | 1 0 0 0 |
+  | 0 1 0 0 |
+  | 0 0 1 0 |
+  | 0 0 0 1 |
+*/
 Eigen::SparseMatrix<double> subDiagIdentyMatrix(int n)
 {
   Eigen::SparseMatrix<double> out(n, n);
@@ -500,8 +606,8 @@ Eigen::MatrixXd MPC::create_P()
   P.block(0, 0, N_ * nx_, N_ * nx_) = kroneckerProduct_eye(speye, Q_);
   P.block(N_ * nx_, N_ * nx_, nx_, nx_) = QN_;
   P.block((N_ + 1) * nx_, (N_ + 1) * nx_, N_ * nu_, N_ * nu_) = kroneckerProduct_eye(speye, R_);
-  std::cout << "P \n"
-            << P << std::endl;
+  // std::cout << "P \n"
+  //           << P << std::endl;
   std::cout << "P size " << P.rows() << " " << P.cols() << std::endl;
   return P;
 }
@@ -513,8 +619,8 @@ Eigen::MatrixXd MPC::create_q()
     q.block(i * nx_, 0, nx_, 1) = -2 * Q_ * xr_;
   q.block(N_ * nx_, 0, nx_, 1) = -2 * QN_ * xr_;
   q.block((N_ + 1) * nx_, 0, N_ * nu_, 1) = Eigen::VectorXd::Zero(N_ * nu_);
-  std::cout << "q \n"
-            << q << std::endl;
+  // std::cout << "q \n"
+  //           << q << std::endl;
   std::cout << "q size " << q.rows() << " " << q.cols() << std::endl;
   return q;
 }
@@ -526,8 +632,8 @@ Eigen::MatrixXd MPC::create_Ax()
   speye_nx.setIdentity();
   Eigen::SparseMatrix<double> subDiag = subDiagIdentyMatrix(N_ + 1);
   Eigen::MatrixXd Ax = kroneckerProduct_eye(speye_N1, -speye_nx) + kroneckerProduct_subEye(subDiag, Ad_);
-  std::cout << "Ax size " << Ax.rows() << " " << Ax.cols() << "\n"
-            << Ax << std::endl;
+  // std::cout << "Ax size " << Ax.rows() << " " << Ax.cols() << "\n"
+  //           << Ax << std::endl;
   return Ax;
 }
 Eigen::MatrixXd MPC::create_Bu()
@@ -538,8 +644,8 @@ Eigen::MatrixXd MPC::create_Bu()
   Bu.setZero();
   // Bu.block(0, nu * (N - 1), nx, nu) = Bd;
   Bu.block(nx_, 0, N_ * nx_, N_ * nu_) = kroneckerProduct_eye(speye, Bd_);
-  std::cout << "Bu size " << Bu.rows() << " " << Bu.cols() << "\n"
-            << Bu << std::endl;
+  // std::cout << "Bu size " << Bu.rows() << " " << Bu.cols() << "\n"
+  //           << Bu << std::endl;
   return Bu;
 }
 Eigen::MatrixXd MPC::create_Aeq(const Eigen::MatrixXd &Ax, const Eigen::MatrixXd &Bu)
@@ -551,16 +657,16 @@ Eigen::MatrixXd MPC::create_leq()
   Eigen::MatrixXd leq(nx_ * (N_ + 1), 1);
   leq.setZero();
   leq.block(0, 0, nx_, 1) = Eigen::MatrixXd(-x0_);
-  std::cout << "leq size " << leq.rows() << " " << leq.cols() << "\n"
-            << leq << std::endl;
+  // std::cout << "leq size " << leq.rows() << " " << leq.cols() << "\n"
+  //           << leq << std::endl;
   return leq;
 }
 Eigen::MatrixXd MPC::create_Aineq()
 {
   Eigen::SparseMatrix<double> Aineq(nVariable_, nVariable_);
   Aineq.setIdentity();
-  std::cout << "Aineq size " << Aineq.rows() << " " << Aineq.cols() << "\n"
-            << Aineq << std::endl;
+  // std::cout << "Aineq size " << Aineq.rows() << " " << Aineq.cols() << "\n"
+  //           << Aineq << std::endl;
   return Aineq;
 }
 Eigen::MatrixXd MPC::create_lineq()
@@ -588,8 +694,8 @@ Eigen::VectorXd MPC::create_xmin()
   Eigen::VectorXd xmin(nx_);
   xmin << -M_PI / 6, -M_PI / 6, -inf, -inf, -inf, -1,
       -inf, -inf, -inf, -inf, -inf, -inf;
-  std::cout << "xmin \n"
-            << xmin << std::endl;
+  // std::cout << "xmin \n"
+  //           << xmin << std::endl;
   return xmin;
 }
 Eigen::VectorXd MPC::create_xmax()
@@ -598,8 +704,8 @@ Eigen::VectorXd MPC::create_xmax()
   Eigen::VectorXd xmax(nx_);
   xmax << M_PI / 6, M_PI / 6, inf, inf, inf, inf,
       inf, inf, inf, inf, inf, inf;
-  std::cout << "xmax \n"
-            << xmax << std::endl;
+  // std::cout << "xmax \n"
+  //           << xmax << std::endl;
   return xmax;
 }
 Eigen::VectorXd MPC::create_umin()
@@ -607,8 +713,8 @@ Eigen::VectorXd MPC::create_umin()
   OSQPFloat u0 = 10.5916;
   Eigen::VectorXd umin(nu_);
   umin << 9.6 - u0, 9.6 - u0, 9.6 - u0, 9.6 - u0;
-  std::cout << "umin \n"
-            << umin << std::endl;
+  // std::cout << "umin \n"
+  //           << umin << std::endl;
   return umin;
 }
 Eigen::VectorXd MPC::create_umax()
@@ -616,8 +722,8 @@ Eigen::VectorXd MPC::create_umax()
   OSQPFloat u0 = 10.5916;
   Eigen::VectorXd umax(nu_);
   umax << 13 - u0, 13 - u0, 13 - u0, 13 - u0;
-  std::cout << "umax \n"
-            << umax << std::endl;
+  // std::cout << "umax \n"
+  //           << umax << std::endl;
   return umax;
 }
 Eigen::VectorXd MPC::create_x0()
@@ -625,7 +731,7 @@ Eigen::VectorXd MPC::create_x0()
   Eigen::VectorXd x0(nx_);
   x0 << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
   std::cout << "x0 \n"
-            << x0 << std::endl;
+            << x0.transpose() << std::endl;
   return x0;
 }
 Eigen::VectorXd MPC::create_xr()
@@ -633,7 +739,7 @@ Eigen::VectorXd MPC::create_xr()
   Eigen::VectorXd xr(nx_);
   xr << 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0;
   std::cout << "xr \n"
-            << xr << std::endl;
+            << xr.transpose() << std::endl;
   return xr;
 }
 Eigen::VectorXd create_xr();
@@ -657,12 +763,12 @@ MPC::MPC() : N_(10), nsim_(15), nVariable_(N_ * nx_ + nx_ + N_ * nu_)
   Q_ = create_Q();
   QN_ = create_QN();
   R_ = create_R();
-  std::cout << "Q \n"
-            << Q_ << std::endl;
-  std::cout << "QN \n"
-            << QN_ << std::endl;
-  std::cout << "R \n"
-            << R_ << std::endl;
+  // std::cout << "Q \n"
+  //           << Q_ << std::endl;
+  // std::cout << "QN \n"
+  //           << QN_ << std::endl;
+  // std::cout << "R \n"
+  //           << R_ << std::endl;
 }
 int MPC::solve()
 {
@@ -762,4 +868,5 @@ int MPC::solve()
       exitflag = osqp_update_data_vec(solver, q_osqp, l_osqp, u_osqp);
     }
   }
+  return 1;
 }

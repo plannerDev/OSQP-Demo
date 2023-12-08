@@ -7,7 +7,7 @@
 extern "C"
 {
     extern OSQPCscMatrix *csc_spalloc(OSQPInt m, OSQPInt n, OSQPInt nzmax, OSQPInt values, OSQPInt triplet);
-    extern void csc_spfree(OSQPCscMatrix *A);
+    extern void csc_spfree(OSQPCscMatrix *eigenSparseMatrix);
 }
 
 std::shared_ptr<OSQPCscMatrix> eiegnSparseMatrixToCsc(Eigen::SparseMatrix<double> &sparse_matrix);

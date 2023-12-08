@@ -1,0 +1,53 @@
+\documentclass[]{article}
+\usepackage{amsmath}
+\begin{document}
+
+    \[ J = X^{T}_{1 * (1 + n * dim)} * Q_{(1 + n * dim) * (1 + n * dim)} * X_{(1 + n * dim) * 1} + q^{T}_{1 * (1 + n * dim)} * X_{(1 + n * dim) * 1} \]
+    \[ s.t.\quad L_{{((4 + 2n) * dim) * 1}} \leq A_{{((4 + 2n) * dim) * (1 + n * dim)}}X_{1 + n * dim} \leq U_{{((4 + 2n) * dim) * 1}} \]
+
+    \[ J = T * Q_{T} * T + \sum_{i = 0}^{n - 1}(p_{i} - p_{ir})^{T} * r * (p_{i} - p_{ir}) \]
+    \[X = [T, p_{0}, \ldots, p_{n - 1}]^{T} = [T, p]^{T}_{(1 + n * dim) * 1} \]
+    \[ R = \begin{bmatrix}
+             r    &    & \\
+             & \ddots  & \\
+             &    &    r
+    \end{bmatrix}_{(n * dim) * (n * dim)} \]
+    \[ Q = \begin{bmatrix}
+        Q_{T} & \\
+         &    R   
+    \end{bmatrix}_{(1 + n * dim) * (1 + n * dim)} \]
+    \[ P_{r} = [p_{0r},\ldots,p_{(n - 1)r}]^{T}_{(n * dim) * 1} \]
+    \[ q = [0, -R * P_{r}]^{T}_{(1 + n * dim) * 1} \]
+
+    \[B_{i}(t)_{dim * dim} \]
+    \[B(t) = [B_{0}(t), B_{1}(t), \ldots, B_{n - 1}(t)]_{dim * (n * dim)} \]
+    \[ Aq_{0} = [0, B(0)]_{dim * (1 + n * dim)} \]
+    \[ (Aq_{0} * X)_{dim * 1} = q_{0} \]
+    \[ Aq_{1} = [0, B(1)]_{dim * (1 + n * dim)} \]
+    \[ (Aq_{1} * X)_{dim * 1} = q_{1} \]
+    \[ M = \begin{bmatrix}
+         0 & 0 & 0 & 0 & 0 \\
+        -1 & 1 & 0 & \cdots & 0 \\
+         0 & -1 & 1 & \cdots & 0 \\
+         \vdots & & \ddots & & \vdots \\
+         0 & \cdots &\cdots &-1 & 1
+    \end{bmatrix}_{(1 + n * dim) * (1 + n * dim)} \]
+    \[ \dot{B_i(t)}_{dim * dim}\]
+    \[ \dot{B(t)} =  [\dot{B_{0}(t)}, \dot{B_{1}(t)}, \ldots, \dot{B_{n - 1}(t)}]_{dim * (n * dim)} \]
+    \[ Aqdq(t)_{dim * (1 + n * dim)} = [0, \dot{B(t)}]_{dim * (1 + n * dim)} * M_{(1 + n * dim) * (1 + n * dim)} \]
+    \[ \dot{r(t)}_{dim * 1} = Aqdq(t) * X \]
+    \[ \dot{r(0)} = 0 \]
+    \[ \dot{r(1)} = 0 \]
+    \[ Aqdq_{0} * X = 0 \]
+    \[ Aqdq_{1} * X = 0 \]
+    \[ Aq = [Aq_{0}; Aq_{1}; Aqdq_{0}; Aqdq_{1}]_{(4 * dim) * (1 + n * dim)} \]
+    \[ Lq = Uq = [q_{0}, q_{1}, 0, 0]^{T}_{(4 * dim) * 1} \]
+    \[ dqmin = [\dot{q_{min}}, \ldots, \dot{q_{min}}]^{T}_{(n * dim) * 1} \]
+    \[ dqmax = [\dot{q_{max}}, \ldots, \dot{q_{max}}]^{T}_{(n * dim) * 1} \]
+    \[ dB = [\dot{B(t_{0})}; \dot{B(t_{1})}; \ldots; \dot{B(t_{n - 1})}]_{(n * dim) * (n * dim)} \]
+    \[ AiqL = [-dqmin, dB]_{(n * dim) * (1 + n * dim)} \]
+    \[ AiqU = [-dqmax, dB]_{(n * dim) * (1 + n * dim)} \]
+    \[ A = [Aq; AiqL; AiqU]_{((4 + 2n) * dim) * (1 + n * dim)}\]
+    \[ L = [Lq; 0; +inf]_{((4 + 2n) * dim) * 1}\]
+    \[ U = [Uq; -inf; 0]_{((4 + 2n) * dim) * 1}\]
+\end{document}

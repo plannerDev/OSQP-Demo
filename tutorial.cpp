@@ -1,12 +1,14 @@
 // A simple program that computes the square root of a number
 #include <iostream>
 #include <string>
-#include "osqp_demo/osqp_demo.h"
+#include "traj_opt/src/test/osqp_demo.h"
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
+  test();
   TestCase demo;
   demo.mpcSolver();
-  // demo.setupAndSolve();
+  demo.setupAndSolve();
+
   return 0;
 }
