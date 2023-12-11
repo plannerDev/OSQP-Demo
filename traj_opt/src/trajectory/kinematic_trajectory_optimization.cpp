@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <algorithm>
 #include <stdexcept>
+#include <vector>
 
 #include "kinematic_trajectory_optimization.h"
 

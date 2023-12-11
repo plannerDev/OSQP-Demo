@@ -26,7 +26,6 @@ namespace gsmpl
                   const std::string &desc = "");
     void printEigenSparseMatrix(const Eigen::SparseMatrix<double> &A,
                                 const std::string &desc = "");
-
     class KinematicTrajectoryOpti
     {
     public:
