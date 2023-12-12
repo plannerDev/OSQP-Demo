@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
+#include <matplot/matplot.h>
 
 #include "kinematic_trajectory_optimization.h"
 
@@ -121,7 +122,7 @@ namespace gsmpl
                   << A.coeffs().transpose() << std::endl;
     }
 
-    bool KinematicTrajectoryOpti::solve()
+    BsplineTrajectory KinematicTrajectoryOpti::solve()
     {
         // for test data
         traj_ = traj();
@@ -145,13 +146,13 @@ namespace gsmpl
         std::cout << "Pr " << Pr.rows() << " " << Pr.cols() << std::endl;
         for (int i = 0; i < num_control_point_; i++)
             Pr.block(i * dim_, 0, dim_, 1) = control_points_[i];
-        // std::cout << Pr << std::endl;
+        std::cout << Pr.transpose() << std::endl;
         // q
         Eigen::MatrixXd q1 = Eigen::MatrixXd::Zero(1, 1);
         Eigen::MatrixXd q2 = -R * Pr;
         Eigen::VectorXd q = vstack(q1, q2).col(0);
         std::cout << "q " << q.size() << std::endl;
-        // std::cout << q << std::endl;
+        // std::cout << q.transpose() << std::endl;
         // Aq
         Eigen::MatrixXd Aq0 = hstack(Eigen::MatrixXd::Zero(dim_, 1), Bt(0));
         Eigen::MatrixXd Aq1 = hstack(Eigen::MatrixXd::Zero(dim_, 1), Bt(1));
@@ -200,8 +201,8 @@ namespace gsmpl
         // std::cout << Aq << std::endl;
 
         // Lq = Uq = [start_p; goal_p; start_vel; goal_vel]
-        Eigen::VectorXd start_p = Eigen::VectorXd::Constant(dim_, 0); // TODO
-        Eigen::VectorXd goal_p = Eigen::VectorXd::Constant(dim_, 1);  // TODO
+        Eigen::VectorXd start_p = control_points_[0];    // TODO
+        Eigen::VectorXd goal_p = control_points_.back(); // TODO
         Eigen::VectorXd start_vel = Eigen::VectorXd::Constant(dim_, 0);
         Eigen::VectorXd goal_vel = Eigen::VectorXd::Constant(dim_, 0);
         // std::cout << "start_p" << start_p.size() << std::endl;
@@ -293,7 +294,55 @@ namespace gsmpl
             osqp_setup(&solver, H_osqp.get(), q_osqp, A_osqp.get(), L_osqp, U_osqp,
                        A.rows(), num_of_variables, &settings);
         exitflag = osqp_solve(solver);
+        std::cout << "solution: x ";
+        for (int i = 0; i < num_of_variables; i++)
+            std::cout << solver->solution->x[i] << " ";
+        std::cout << std::endl;
 
-        return 0;
+        // control points
+        std::vector<Eigen::VectorXd> control_points;
+        for (int i = 0; i < num_control_point_; i++)
+        {
+            Eigen::VectorXd p = Eigen::VectorXd::Zero(dim_);
+            for (int j = 0; j < dim_; j++)
+                p(j) = solver->solution->x[i * dim_ + j + 1];
+            control_points.push_back(p);
+        }
+
+        return BsplineTrajectory(BsplineBasis{traj_.basis().order(), num_control_point_, KnotVectorType::kClamptedUniform, 0, solver->solution->x[0]},
+                                 control_points);
     }
+
+    void KinematicTrajectoryOpti::plot_traj()
+    {
+        traj_ = traj();
+
+        double dt = 1 / num_control_point_;
+        std::vector<double> t0 = matplot::linspace(0, 1, num_control_point_);
+        std::vector<double> t1 = matplot::linspace(0, 1, 100);
+        std::vector<double> q0_v;
+        std::vector<double> q1_v;
+        std::vector<double> c0_v;
+        std::vector<double> c1_v;
+
+        for (int i = 0; i < t0.size(); i++)
+        {
+            c0_v.push_back(control_points_[i](0));
+            c1_v.push_back(control_points_[i](1));
+        }
+
+        for (int i = 0; i < t1.size(); i++)
+        {
+            q0_v.push_back(traj_.value(t1[i])(0));
+            q1_v.push_back(traj_.value(t1[i])(1));
+        }
+
+        std::cout << "t0 " << t0.size() << " q0 " << q0_v.size() << std::endl;
+        std::cout << "t1 " << t1.size() << " q1 " << q1_v.size() << std::endl;
+        matplot::plot(c0_v, c1_v, q0_v, q1_v, "--");
+
+        solve();
+        matplot::show();
+    }
+
 } // namespace gsmpl

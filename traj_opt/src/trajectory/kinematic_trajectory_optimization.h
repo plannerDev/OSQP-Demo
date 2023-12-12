@@ -43,19 +43,28 @@ namespace gsmpl
 
         const BsplineTrajectory &traj() const { return traj_; }
 
-        bool solve();
+        BsplineTrajectory solve();
+        void plot_traj();
 
     private:
         std::vector<Eigen::VectorXd> control_points()
         {
             std::vector<Eigen::VectorXd> out;
-            Eigen::VectorXd p = Eigen::VectorXd::Constant(dim_, 1);
-            for (int i = 0; i < num_control_point_; i++)
-            {
-                out.push_back(p * i);
-                // std::cout << "control_points_(" << i << ") " << out[i] <<
-                // std::endl;
-            }
+            Eigen::MatrixXd out_mat(10, 7);
+            out_mat << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.1, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                0.2, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,
+                0.3, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35,
+                0.4, 0.38, 0.38, 0.38, 0.38, 0.38, 0.38,
+                0.5, 0.38, 0.38, 0.38, 0.38, 0.38, 0.38,
+                0.6, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35,
+                0.7, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,
+                0.8, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1;
+
+            for (int i = 0; i < out_mat.rows(); i++)
+                out.push_back(out_mat.row(i));
+
             return out;
         }
         Eigen::MatrixXd Bt(double t)
