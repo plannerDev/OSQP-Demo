@@ -108,33 +108,61 @@ namespace gsmpl
         return computeActiveBasisFunctionIndices(
             {parameter_value, parameter_value});
     }
-    Eigen::VectorXd BsplineBasis::evaluateBasisFunctionI(
-        int state_dim, int index, double parameter_value) const
+    // B(i)(t)
+    Eigen::VectorXd BsplineBasis::Bit(int dim, int index, double t) const
     {
         assert(index < numBasisFunctions());
-        Eigen::VectorXd s = Eigen::VectorXd::Zero(state_dim);
+        Eigen::VectorXd s = Eigen::VectorXd::Zero(dim);
         std::vector<Eigen::VectorXd> delta(numBasisFunctions(), s);
-        for (int i = 0; i < state_dim; i++)
+        for (int i = 0; i < dim; i++)
             delta[index](i) = 1.0;
-        return evaluateCurve(delta, parameter_value);
+        return evaluateCurve(delta, t);
+    }
+    Eigen::MatrixXd BsplineBasis::Bt(int dim, double t) const
+    {
+        int n = numBasisFunctions();
+        Eigen::MatrixXd Bt = Eigen::MatrixXd::Zero(dim, n * dim);
+        for (int i = 0; i < n; i++)
+            Bt.block(0, i * dim, dim, dim) = Bit(dim, i, t).asDiagonal();
+        std::cout << "Bt" << t << " " << Bt.rows() << " " << Bt.cols() << std::endl;
+        // std::cout << Bt << std::endl;
+        return Bt;
     }
     // dot_Bi_coefficient
     // dBcoe_{i}(t) = \frac{p}{t_{i + p + 1} - t_{i + 1}} * B_{i + 1}^{p - 1}(t)
-    Eigen::VectorXd BsplineBasis::dBcoe_I(int state_dim, int index,
-                                          double parameter_value) const
+    Eigen::VectorXd BsplineBasis::dBit_weighted(int dim, int index, double t) const
     {
         assert(index < numBasisFunctions() - 1);
-
         double p = static_cast<double>(degree());
         double dt = knots()[index + p + 1] - knots()[index + 1];
         if (degree() == 0 || dt == 0)
-            return Eigen::VectorXd::Zero(state_dim);
+            return Eigen::VectorXd::Zero(dim);
 
-        BsplineBasis dot_basis(order() - 1, knots());
-        Eigen::VectorXd Bi_1 =
-            dot_basis.evaluateBasisFunctionI(state_dim, index + 1, parameter_value);
+        return (p / dt) * dBit(dim, index, t);
+    }
+    Eigen::MatrixXd BsplineBasis::dBt_weighted(int dim, double t) const
+    {
+        int n = numBasisFunctions() - 1;
+        Eigen::MatrixXd dBtcoe = Eigen::MatrixXd::Zero(dim, n * dim);
+        for (int i = 0; i < n; i++)
+            dBtcoe.block(0, i * dim, dim, dim) =
+                dBit_weighted(dim, i, t).asDiagonal();
+        std::cout << "dBcoe " << t << " " << dBtcoe.rows() << " " << dBtcoe.cols()
+                  << std::endl;
+        std::cout << dBtcoe << std::endl;
+        return dBtcoe;
+    }
+    Eigen::VectorXd BsplineBasis::dBit(int dim, int index, double t) const
+    {
+        std::vector<double> derivative_knots;
+        const int num_derivative_knots = knots().size() - 2;
+        derivative_knots.reserve(num_derivative_knots);
+        for (int i = 1; i <= num_derivative_knots; ++i)
+            derivative_knots.push_back(knots()[i]);
 
-        return (p / dt) * Bi_1;
+        BsplineBasis dot_basis(order() - 1, derivative_knots);
+
+        return dot_basis.Bit(dim, index, t);
     }
     Eigen::VectorXd BsplineBasis::evaluateCurve(
         const std::vector<Eigen::VectorXd> &control_points,
@@ -176,6 +204,13 @@ namespace gsmpl
             }
         }
         return p.front();
+    }
+    void BsplineBasis::print_knots() const
+    {
+        std::cout << "knots ";
+        for (int i = 0; i < knots_.size(); i++)
+            std::cout << knots_[i] << " ";
+        std::cout << std::endl;
     }
 
     bool BsplineBasis::CheckInvariants() const
