@@ -67,7 +67,6 @@ namespace gsmpl
         int nc_;                 // number of constraints
         int n_equa_constraint_;  // number of equality constraints
         int n_inequ_constraint_; // number of inequality constraints
-        int num_vel_constraint_{10};
         std::vector<Eigen::VectorXd> control_points_;
 
         Eigen::VectorXd p_start_;
