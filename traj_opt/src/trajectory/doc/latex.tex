@@ -1,0 +1,88 @@
+\documentclass[]{article}
+\usepackage{amsmath}
+\begin{document}
+  
+\begin{itemize}
+    \item[] n: number of control points 
+    \item[] n: number of basis functions
+    \item[] dim: dimension of state 
+    \item[] p: degree of BSpline curve 
+    \item[] k: order of BSpline curve k = p - 1
+    \item[] nKnot: number of knots nKnot = n + k
+    \item[] nx: number of variables nx = n * dim + 1
+    \item[] nc: number of constraints nc = nEquaC + inequality * 2
+    \item[] nEquaC: number of equality constraints nEquaC = 4
+    \item[] nInequaC: number of inequality constraints
+\end{itemize}
+
+
+    \[ J = X^{T}_{1 * nx} * Q_{nx * nx} * X_{nx * 1} + q^{T}_{1 * nx} * X_{nx * 1} \]
+    \[ s.t.\quad L_{(nc * dim) * 1} \leq A_{(nc * dim) * nx}X_{nx * 1} \leq U_{(nc * dim) * 1} \]
+
+    \[ J = T * Q_{T} * T + \sum_{i = 0}^{n - 1}(p_{i} - p_{ir})^{T} * r * (p_{i} - p_{ir}) \]
+    \[ s.t.\quad q(0) = q_{start}; \]
+    \[ \quad q(1) = q_{goal}; \]
+    \[ \quad \dot{q(0)} = 0; \]
+    \[ \quad \dot{q(1)} = 0; \]
+    \[ \quad qMin \leq \dot(q)(i) \quad i \in [0, nInequaC]; \] 
+    \[ \quad \dot(q)(i) \leq qMax \quad i \in [0, nInequaC] \]   
+    *************************************************************************
+
+    \[X = [T, p_{0}, \ldots, p_{n - 1}]^{T} = [T, p]^{T}_{nx * 1} \]
+    \[ R = \begin{bmatrix}
+             r    &    & \\
+             & \ddots  & \\
+             &    &    r
+    \end{bmatrix}_{(n * dim) * (n * dim)} \]
+    \[ Q = \begin{bmatrix}
+        Q_{T} & \\
+         &    R   
+    \end{bmatrix}_{nx * nx} \]
+    \[ P_{r} = [p_{0r},\ldots,p_{(n - 1)r}]^{T}_{(n * dim) * 1} \]
+    \[ q = [0, -R * P_{r}]^{T}_{nx * 1} \]
+
+    \[B_{i}(t)_{dim * dim} =  BasisFunctionI(t).asDiagonal()\]
+    \[B(t) = [B_{0}(t), B_{1}(t), \ldots, B_{n - 1}(t)]_{dim * (n * dim)} \]
+    Aq: equality constraints matrix \\
+    \[Aq * X = Lq = Uq \]
+    \[ Aq_{0} = [0, B(0)]_{dim * nx} \]
+    \[ (Aq_{0} * X)_{dim * 1} = q_{0} \]
+    \[ Aq_{1} = [0, B(1)]_{dim * nx} \]
+    \[ (Aq_{1} * X)_{dim * 1} = q_{1} \]
+    \[ M = \begin{bmatrix}
+        0 & -E_{dim * dim} & E_{dim * dim} & 0 & \cdots & 0 \\
+        0 & 0 & -E_{dim * dim} & E_{dim * dim} & \cdots & 0 \\
+        \vdots &  \vdots & & \ddots & & \vdots \\
+        0 & 0 & \cdots &\cdots &-E_{dim * dim} & E_{dim * dim}
+    \end{bmatrix}_{((n - 1) * dim) * nx} \]
+
+    \[ \dot{B_i(t)}_{dim * dim}\]
+    \[ \dot{B(t)} =  [\dot{B_{0}(t)}, \dot{B_{1}(t)}, \ldots, \dot{B_{n - 1}(t)}]_{dim * (n * dim)} \]
+    
+    
+    \[ r(t) = \Sigma_{i = 0}^{n - 1}B_{i}^{p}(t)P_{i} \]
+    \[ DotBspline: dB = Spline(k - 1, {knot_1,\dots, kont_{nKnot - 1}}) \]
+    \[ \dot{r(t)} = \Sigma_{i = 0}^{n - 2}B_{i + 1}^{p - 1}(t)Q_{i} = \Sigma_{i = 0}^{n - 2}dB_{i}^{p - 1}(t)Q_{i} \]
+    \[ Q_{i} = \frac{p}{t_{i + p + 1} - t_{i + 1}}(P_{i + 1} - P_{i}) \]
+    \[ dBWeighted_{i}(t) = \frac{p}{t_{i + p + 1} - t_{i + 1}} * dB_{i}^{p - 1}(t) \]
+    \[ dBWeighted(t) =  [dBWeighted_{0}(t), dBWeighted_{1}(t), \ldots, dBWeighted_{n - 2}(t)]_{dim * ((n - 1) * dim)} \]
+    \[ dBWSequence = [dBWeighted(t_0), \dots, dBWeighted(t_m)] \]
+
+    \[ Aqdq(t)_{dim * nx} = dBWeighted(t)_{dim * ((n - 1) * dim)} * M_{((n - 1) * dim) * nx} \]
+    \[ \dot{r(t)}_{dim * 1} = Aqdq(t) * X \]
+    \[ \dot{r(0)} = 0,\quad Aqdq_{0} * X = 0 \]
+    \[ \dot{r(1)} = 0,\quad Aqdq_{1} * X = 0 \]
+    \[ Aq = [Aq_{0}; Aq_{1}; Aqdq_{0}; Aqdq_{1}]_{(4 * dim) * nx} \]
+    \[ Lq = Uq = [q_{0}; q_{1}; 0; 0]_{(4 * dim) * 1} \]
+    \[ dqmin = [\dot{q_{min}}; \ldots; \dot{q_{min}}]_{(nInequaC * dim) * 1} \]
+    \[ dqmax = [\dot{q_{max}}; \ldots; \dot{q_{max}}]_{(nInequaC * dim) * 1} \]
+    \[ dM = [1, 0, \ldots, 0]^T_{1 * nx} \]
+    \[ Aqdq = [Aqdq(t_{0}); Aqdq(t_{1}); \ldots; Aqdq(t_{nInequaC - 1})]_{(nInequaC * dim) * nx} \]
+    \[ Aqdq * X - dqmin * dM * X \geq 0_{nInequaC * dim} \]
+    \[ (Aqdq - dqmin * dM) * X \geq 0 \]
+    \[ AiqL = (Aqdq - dqmin * dM)_{(nInequaC * dim) * nx} \]
+    \[ AiqU = (Aqdq - dqmax * dM)_{(nInequaC * dim) * nx} \]
+    \[ A = [Aq; AiqL; AiqU]_{((4 + 2 * nInequaC) * dim) * nx}\]
+    \[ L = [Lq; 0; +inf]_{((4 + 2 * nInequaC) * dim) * 1}\]
+    \[ U = [Uq; -inf; 0]_{((4 + 2 * nInequaC) * dim) * 1}\]
+\end{document}

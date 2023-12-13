@@ -20,8 +20,8 @@ namespace gsmpl
         Eigen::VectorXd value(const double time) const override;
 
         std::size_t stateDof() const override { return controlPoints()[0].size(); }
-        double startTime() const override { return basis_.initialParameterValue(); }
-        double endTime() const override { return basis_.finalParameterValue(); }
+        double startTime() const override { return basis_.t0(); }
+        double endTime() const override { return basis_.tf(); }
         int numControlPoints() const { return basis_.numBasisFunctions(); }
         const std::vector<Eigen::VectorXd> &controlPoints() const
         {

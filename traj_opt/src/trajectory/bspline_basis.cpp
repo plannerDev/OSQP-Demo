@@ -9,9 +9,7 @@ namespace gsmpl
     namespace
     {
         std::vector<double> makeKnotVector(int order, int num_basis_functions,
-                                           KnotVectorType type,
-                                           const double initial_parameter_value,
-                                           const double final_parameter_value)
+                                           KnotVectorType type, double t0, double tf)
         {
             if (num_basis_functions < order)
             {
@@ -19,33 +17,30 @@ namespace gsmpl
                     "The number of basis functions ({}) should be greater than or "
                     "equal to the order ({}).");
             }
-            assert(initial_parameter_value <= final_parameter_value);
+            assert(t0 <= tf);
             const int num_knots{num_basis_functions + order};
             std::vector<double> knots(num_knots);
-            const double knot_interval =
-                (final_parameter_value - initial_parameter_value) /
-                (num_basis_functions - order + 1.0);
+            const double knot_interval = (tf - t0) / (num_basis_functions - order + 1.0);
             for (int i = 0; i < num_knots; ++i)
             {
                 if (i < order && type == KnotVectorType::kClamptedUniform)
                 {
-                    knots.at(i) = initial_parameter_value;
+                    knots.at(i) = t0;
                 }
                 else if (i >= num_basis_functions &&
                          type == KnotVectorType::kClamptedUniform)
                 {
-                    knots.at(i) = final_parameter_value;
+                    knots.at(i) = tf;
                 }
                 else
                 {
-                    knots.at(i) =
-                        initial_parameter_value + knot_interval * (i - (order - 1));
+                    knots.at(i) = t0 + knot_interval * (i - (order - 1));
                 }
             }
             return knots;
         }
 
-        bool less_than_with_cast(const double val, const double other)
+        bool less_than_with_cast(double val, double other)
         {
             return static_cast<bool>(val < other);
         }
@@ -63,35 +58,33 @@ namespace gsmpl
     }
     BsplineBasis::BsplineBasis(int order, int num_basis_functions,
                                KnotVectorType type,
-                               const double initial_parameter_value,
-                               const double final_parameter_value)
+                               double t0, double tf)
         : BsplineBasis(order, makeKnotVector(order, num_basis_functions, type,
-                                             initial_parameter_value,
-                                             final_parameter_value)) {}
+                                             t0, tf)) {}
 
-    int BsplineBasis::findContainingInterval(const double parameter_value) const
+    int BsplineBasis::findContainingInterval(double t) const
     {
-        assert(parameter_value >= initialParameterValue());
-        assert(parameter_value <= finalParameterValue());
-        const std::vector<double> &t = knots();
-        const double t_bar = parameter_value;
+        assert(t >= t0());
+        assert(t <= tf());
+        const std::vector<double> &tk = knots();
+        const double t_bar = t;
         return std::distance(
-            t.begin(), std::prev(t_bar < finalParameterValue()
-                                     ? std::upper_bound(t.begin(), t.end(), t_bar,
-                                                        less_than_with_cast)
-                                     : std::lower_bound(t.begin(), t.end(), t_bar,
-                                                        less_than_with_cast)));
+            tk.begin(), std::prev(t_bar < tf()
+                                      ? std::upper_bound(tk.begin(), tk.end(), t_bar,
+                                                         less_than_with_cast)
+                                      : std::lower_bound(tk.begin(), tk.end(), t_bar,
+                                                         less_than_with_cast)));
     }
     std::vector<int> BsplineBasis::computeActiveBasisFunctionIndices(
-        const std::array<double, 2> &parameter_interval) const
+        const std::array<double, 2> &t_interval) const
     {
-        assert(parameter_interval[0] <= parameter_interval[1]);
-        assert(parameter_interval[0] >= initialParameterValue());
-        assert(parameter_interval[1] <= finalParameterValue());
+        assert(t_interval[0] <= t_interval[1]);
+        assert(t_interval[0] >= t0());
+        assert(t_interval[1] <= tf());
         const int first_active_index =
-            findContainingInterval(parameter_interval[0]) - order() + 1;
+            findContainingInterval(t_interval[0]) - order() + 1;
         const int final_active_index =
-            findContainingInterval(parameter_interval[1]);
+            findContainingInterval(t_interval[1]);
         std::vector<int> active_control_point_indices{};
         active_control_point_indices.reserve(final_active_index -
                                              first_active_index);
@@ -102,11 +95,9 @@ namespace gsmpl
         return active_control_point_indices;
     }
 
-    std::vector<int> BsplineBasis::computeActiveBasisFunctionIndices(
-        const double parameter_value) const
+    std::vector<int> BsplineBasis::computeActiveBasisFunctionIndices(double t) const
     {
-        return computeActiveBasisFunctionIndices(
-            {parameter_value, parameter_value});
+        return computeActiveBasisFunctionIndices({t, t});
     }
     // B(i)(t)
     Eigen::VectorXd BsplineBasis::Bit(int dim, int index, double t) const
@@ -124,7 +115,7 @@ namespace gsmpl
         Eigen::MatrixXd Bt = Eigen::MatrixXd::Zero(dim, n * dim);
         for (int i = 0; i < n; i++)
             Bt.block(0, i * dim, dim, dim) = Bit(dim, i, t).asDiagonal();
-        std::cout << "Bt" << t << " " << Bt.rows() << " " << Bt.cols() << std::endl;
+        // std::cout << "Bt" << t << " " << Bt.rows() << " " << Bt.cols() << std::endl;
         // std::cout << Bt << std::endl;
         return Bt;
     }
@@ -143,14 +134,14 @@ namespace gsmpl
     Eigen::MatrixXd BsplineBasis::dBt_weighted(int dim, double t) const
     {
         int n = numBasisFunctions() - 1;
-        Eigen::MatrixXd dBtcoe = Eigen::MatrixXd::Zero(dim, n * dim);
+        Eigen::MatrixXd dBt_w = Eigen::MatrixXd::Zero(dim, n * dim);
         for (int i = 0; i < n; i++)
-            dBtcoe.block(0, i * dim, dim, dim) =
+            dBt_w.block(0, i * dim, dim, dim) =
                 dBit_weighted(dim, i, t).asDiagonal();
-        std::cout << "dBcoe " << t << " " << dBtcoe.rows() << " " << dBtcoe.cols()
-                  << std::endl;
-        std::cout << dBtcoe << std::endl;
-        return dBtcoe;
+        // std::cout << "dBt_w " << t << " " << dBt_w.rows() << " " << dBt_w.cols()
+        //           << std::endl;
+        // std::cout << dBt_w << std::endl;
+        return dBt_w;
     }
     Eigen::VectorXd BsplineBasis::dBit(int dim, int index, double t) const
     {
@@ -166,19 +157,19 @@ namespace gsmpl
     }
     Eigen::VectorXd BsplineBasis::evaluateCurve(
         const std::vector<Eigen::VectorXd> &control_points,
-        const double parameter_value) const
+        double t) const
     {
         assert(static_cast<int>(control_points.size()) == numBasisFunctions());
-        assert(parameter_value >= initialParameterValue());
-        assert(parameter_value <= finalParameterValue());
+        assert(t >= t0());
+        assert(t <= tf());
 
         // Define short names to match notation in [1].
-        const std::vector<double> &t = knots();
-        const double t_bar = parameter_value;
+        const std::vector<double> &tk = knots();
+        const double t_bar = t;
         const int k = order();
 
         /* Find the index, 𝑙, of the greatest knot that is less than or equal to
-        t_bar and strictly less than finalParameterValue(). */
+        t_bar and strictly less than tf(). */
         const int ell = findContainingInterval(t_bar);
         // The vector that stores the intermediate de Boor points (the pᵢʲ in
         // [1]).
@@ -199,7 +190,7 @@ namespace gsmpl
                 const int i = ell - r;
                 // α = (t_bar - t[i]) / (t[i + k - j] - t[i]);
                 const double alpha =
-                    (t_bar - t.at(i)) / (t.at(i + k - j) - t.at(i));
+                    (t_bar - tk.at(i)) / (tk.at(i + k - j) - tk.at(i));
                 p.at(r) = (1.0 - alpha) * p.at(r + 1) + alpha * p.at(r);
             }
         }

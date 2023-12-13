@@ -22,26 +22,22 @@ namespace gsmpl
         BsplineBasis(int order = 0, std::vector<double> knots = {});
         BsplineBasis(int order, int num_basis_functions,
                      KnotVectorType type = KnotVectorType::kClamptedUniform,
-                     const double initial_parameter_value = 0,
-                     const double final_parameter_value = 1);
+                     double t0 = 0, double tf = 1);
 
         int order() const { return order_; }
         int degree() const { return order() - 1; }
         int numBasisFunctions() const { return knots_.size() - order_; }
         const std::vector<double> &knots() const { return knots_; }
-        double initialParameterValue() const { return knots()[order() - 1]; }
-        double finalParameterValue() const { return knots()[numBasisFunctions()]; }
+        double t0() const { return knots()[order() - 1]; }
+        double tf() const { return knots()[numBasisFunctions()]; }
 
-        int findContainingInterval(const double parameter_value) const;
+        int findContainingInterval(double t) const;
         std::vector<int> computeActiveBasisFunctionIndices(
-            const std::array<double, 2> &parameter_interval) const;
+            const std::array<double, 2> &t_interval) const;
 
-        std::vector<int> computeActiveBasisFunctionIndices(
-            const double parameter_value) const;
+        std::vector<int> computeActiveBasisFunctionIndices(double t) const;
 
-        StatePosition evaluateCurve(
-            const std::vector<StatePosition> &control_points,
-            const double parameter_value) const;
+        StatePosition evaluateCurve(const std::vector<StatePosition> &control_points, double t) const;
         // Bi(t)
         Eigen::VectorXd Bit(int dim, int index, double t) const;
         // B(t)

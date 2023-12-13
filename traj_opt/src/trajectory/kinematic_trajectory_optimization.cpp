@@ -231,14 +231,14 @@ namespace gsmpl
         // std::cout << M2 << std::endl;
 
         Eigen::MatrixXd M3 = M1 - M2;
-        std::cout << "M3 " << M3.rows() << " " << M3.cols() << std::endl;
-        std::cout << M3 << std::endl;
+        // std::cout << "M3 " << M3.rows() << " " << M3.cols() << std::endl;
+        // std::cout << M3 << std::endl;
 
         Eigen::MatrixXd M4 = Eigen::MatrixXd::Zero((n_ - 1) * dim_, dim_ + 1);
         M4.block(0, 1, dim_, dim_) = -1 * Eigen::MatrixXd::Identity(dim_, dim_);
         Eigen::MatrixXd M = hstack(M4, M3);
         std::cout << "M " << M.rows() << " " << M.cols() << std::endl;
-        std::cout << M << std::endl;
+        // std::cout << M << std::endl;
         return M;
     }
     Eigen::MatrixXd KinematicTrajectoryOpti::create_Aeq(const Eigen::MatrixXd &M) const
@@ -312,13 +312,13 @@ namespace gsmpl
     Eigen::MatrixXd KinematicTrajectoryOpti::create_Aieq(const Eigen::MatrixXd &M, const Eigen::MatrixXd &dM,
                                                          const Eigen::MatrixXd &dQmin, const Eigen::MatrixXd &dQmax) const
     {
-        // dBcoeS = [dBcoe(0), dBcoe(0.25), dBcoe(0.5), dBcoe(0.75), dBcoe(1)]
-        // AiqL = dBcoeS * M - dQmin * dM >= 0
-        // AiqU = dBcoeS * M - dQmax * dM <= 0
-        Eigen::MatrixXd dBcoeS = dB_weighted_sequence();
-        Eigen::MatrixXd AiqL = dBcoeS * M - dQmin * dM;
-        Eigen::MatrixXd AiqU = dBcoeS * M - dQmax * dM;
-        std::cout << "dQmin * dM" << (dQmin * dM).rows() << " " << (dQmin * dM).cols()
+        // dBWS = [dB_w(0), dB_w(0.25), dB_w(0.5), dB_w(0.75), dB_w(1)]
+        // AiqL = dBWS * M - dQmin * dM >= 0
+        // AiqU = dBWS * M - dQmax * dM <= 0
+        Eigen::MatrixXd dBWS = dB_weighted_sequence();
+        Eigen::MatrixXd AiqL = dBWS * M - dQmin * dM;
+        Eigen::MatrixXd AiqU = dBWS * M - dQmax * dM;
+        std::cout << "dQmin * dM " << (dQmin * dM).rows() << " " << (dQmin * dM).cols()
                   << std::endl;
         std::cout << "AiqL " << AiqL.rows() << " " << AiqL.cols() << std::endl;
         // std::cout << AiqL << std::endl;
@@ -331,21 +331,21 @@ namespace gsmpl
     {
         double inf = std::numeric_limits<double>::infinity();
         int row = n_inequ_constraint_ * dim_;
-        Eigen::VectorXd L = Eigen::VectorXd::Zero(row);
-        L = vstack(L, Eigen::VectorXd::Constant(row, -inf));
-        std::cout << "L " << L.rows() << " " << L.cols() << std::endl;
-        std::cout << L.transpose() << std::endl;
-        return L;
+        Eigen::VectorXd Lineq = Eigen::VectorXd::Zero(row);
+        Lineq = vstack(Lineq, Eigen::VectorXd::Constant(row, -inf));
+        std::cout << "Lineq " << Lineq.rows() << " " << Lineq.cols() << std::endl;
+        std::cout << Lineq.transpose() << std::endl;
+        return Lineq;
     }
     Eigen::VectorXd KinematicTrajectoryOpti::create_Uineq() const
     {
         double inf = std::numeric_limits<double>::infinity();
         int row = n_inequ_constraint_ * dim_;
-        Eigen::VectorXd U = Eigen::VectorXd::Constant(row, inf);
-        U = vstack(U, Eigen::VectorXd::Zero(row));
-        std::cout << "U " << U.rows() << " " << U.cols() << std::endl;
-        std::cout << U.transpose() << std::endl;
-        return U;
+        Eigen::VectorXd Uineq = Eigen::VectorXd::Constant(row, inf);
+        Uineq = vstack(Uineq, Eigen::VectorXd::Zero(row));
+        std::cout << "Uineq " << Uineq.rows() << " " << Uineq.cols() << std::endl;
+        std::cout << Uineq.transpose() << std::endl;
+        return Uineq;
     }
     BsplineTrajectory KinematicTrajectoryOpti::solve()
     {
@@ -475,6 +475,7 @@ namespace gsmpl
         }
         std::cout << "q2_v " << q2_v.size() << " q3_v " << q3_v.size() << std::endl;
         matplot::plot(q2_v, q3_v, "-o-");
+        matplot::grid(matplot::on);
         matplot::hold(matplot::off);
         matplot::subplot(3, 1, 1);
         std::vector<double> v0_v;
@@ -489,6 +490,7 @@ namespace gsmpl
         matplot::plot(t1, v0_v, t1, v1_v, "--");
         matplot::xlabel("Time(s)");
         matplot::ylabel("vel(rad/s)");
+        matplot::grid(matplot::on);
 
         matplot::subplot(3, 1, 2);
         for (int i = 0; i < t2.size(); i++)
@@ -499,6 +501,7 @@ namespace gsmpl
         matplot::plot(t2, v2_v, t2, v3_v, "--");
         matplot::xlabel("Time(s)");
         matplot::ylabel("opt_vel(rad/s)");
+        matplot::grid(matplot::on);
         matplot::show();
     }
 
