@@ -24,8 +24,8 @@
     \[ \quad q(1) = q_{goal}; \]
     \[ \quad \dot{q(0)} = 0; \]
     \[ \quad \dot{q(1)} = 0; \]
-    \[ \quad qMin \leq \dot(q)(i) \quad i \in [0, nInequaC]; \] 
-    \[ \quad \dot(q)(i) \leq qMax \quad i \in [0, nInequaC] \]   
+    \[ \quad Q_{min} \leq \dot(q)(i) \quad i \in [0, nInequaC]; \] 
+    \[ \quad \dot(q)(i) \leq Q_{max} \quad i \in [0, nInequaC] \]   
     *************************************************************************
 
     \[X = [T, p_{0}, \ldots, p_{n - 1}]^{T} = [T, p]^{T}_{nx * 1} \]
@@ -76,9 +76,9 @@
     \[ Lq = Uq = [q_{0}; q_{1}; 0; 0]_{(4 * dim) * 1} \]
     \[ dqmin = [\dot{q_{min}}; \ldots; \dot{q_{min}}]_{(nInequaC * dim) * 1} \]
     \[ dqmax = [\dot{q_{max}}; \ldots; \dot{q_{max}}]_{(nInequaC * dim) * 1} \]
-    \[ dM = [1, 0, \ldots, 0]^T_{1 * nx} \]
+    \[ dM = [1, 0, \ldots, 0]_{1 * nx} \]
     \[ Aqdq = [Aqdq(t_{0}); Aqdq(t_{1}); \ldots; Aqdq(t_{nInequaC - 1})]_{(nInequaC * dim) * nx} \]
-    \[ Aqdq * X - dqmin * dM * X \geq 0_{nInequaC * dim} \]
+    \[ Aqdq * X - dqmin * dM * X \geq 0_{(nInequaC * dim)*1} \]
     \[ (Aqdq - dqmin * dM) * X \geq 0 \]
     \[ AiqL = (Aqdq - dqmin * dM)_{(nInequaC * dim) * nx} \]
     \[ AiqU = (Aqdq - dqmax * dM)_{(nInequaC * dim) * nx} \]

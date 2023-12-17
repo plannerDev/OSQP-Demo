@@ -377,9 +377,11 @@ namespace gsmpl
         Eigen::VectorXd U = vstack(Uq, Uineq);
 
         // OSQP solver
-        std::vector<Eigen::VectorXd> control_points = OSQP_solver(Q, q, A, L, U);
-        return BsplineTrajectory(BsplineBasis{traj_.basis().order(), n_, KnotVectorType::kClamptedUniform, 0, duration_},
-                                 control_points);
+        auto solution = OSQP_solver(Q, q, A, L, U);
+        duration_ = solution.first;
+
+        return BsplineTrajectory(BsplineBasis{traj_.basis().order(), n_, KnotVectorType::kClamptedUniform, 0, solution.first},
+                                 solution.second);
     }
     std::vector<Eigen::VectorXd> KinematicTrajectoryOpti::solution_to_control_points(const OSQPFloat *x) const
     {
@@ -394,9 +396,9 @@ namespace gsmpl
         }
         return control_points;
     }
-    std::vector<Eigen::VectorXd> KinematicTrajectoryOpti::OSQP_solver(const Eigen::MatrixXd &Q, const Eigen::VectorXd &q,
-                                                                      const Eigen::MatrixXd &A, const Eigen::VectorXd &L,
-                                                                      const Eigen::VectorXd &U)
+    std::pair<double, std::vector<Eigen::VectorXd>> KinematicTrajectoryOpti::OSQP_solver(const Eigen::MatrixXd &Q, const Eigen::VectorXd &q,
+                                                                                         const Eigen::MatrixXd &A, const Eigen::VectorXd &L,
+                                                                                         const Eigen::VectorXd &U)
     {
         Eigen::SparseMatrix<double> Q_sparse = Q.sparseView();
         std::shared_ptr<OSQPCscMatrix> Q_osqp = eigenSparseMatrixToCsc(Q_sparse);
@@ -419,12 +421,12 @@ namespace gsmpl
             osqp_setup(&solver, Q_osqp.get(), q_osqp, A_osqp.get(), L_osqp, U_osqp,
                        A.rows(), nx_, &settings);
         exitflag = osqp_solve(solver);
-        duration_ = solver->solution->x[0];
+        // duration_ = solver->solution->x[0];
         std::cout << "solution: x ";
         for (int i = 0; i < nx_; i++)
             std::cout << solver->solution->x[i] << " ";
         std::cout << std::endl;
-        return solution_to_control_points(solver->solution->x);
+        return std::make_pair(solver->solution->x[0], solution_to_control_points(solver->solution->x));
     }
     void KinematicTrajectoryOpti::plot_traj()
     {
@@ -432,10 +434,10 @@ namespace gsmpl
         double dt = 1 / static_cast<double>(n_);
         std::vector<double> t0 = matplot::linspace(0, 1, n_);
         std::vector<double> t1 = matplot::linspace(0, 1, 100);
-        std::vector<double> q0_v;
-        std::vector<double> q1_v;
-        std::vector<double> c0_v;
-        std::vector<double> c1_v;
+        std::vector<double> q0_v; // initial trajectory of dof(0)
+        std::vector<double> q1_v; // initial trajectory of dof(1)
+        std::vector<double> c0_v; // initial contorl point of dof(0)
+        std::vector<double> c1_v; // initial contorl point of dof(1)
 
         for (int i = 0; i < t0.size(); i++)
         {
@@ -457,10 +459,10 @@ namespace gsmpl
 
         std::cout << "end time " << traj.endTime() << std::endl;
         std::vector<double> t2 = matplot::linspace(0, traj.endTime(), 100);
-        std::vector<double> q2_v;
-        std::vector<double> q3_v;
-        std::vector<double> c2_v;
-        std::vector<double> c3_v;
+        std::vector<double> q2_v; // optimal trajectory of dof(0)
+        std::vector<double> q3_v; // optimal trajectory of dof(1)
+        std::vector<double> c2_v; // optimal control point of dof(0)
+        std::vector<double> c3_v; // optimal control point of dof(1)
         for (int i = 0; i < t0.size(); i++)
         {
             c2_v.push_back(traj.controlPoints()[i](0));
@@ -474,14 +476,14 @@ namespace gsmpl
             q3_v.push_back(traj.value(t2[i])(1));
         }
         std::cout << "q2_v " << q2_v.size() << " q3_v " << q3_v.size() << std::endl;
-        matplot::plot(q2_v, q3_v, "-o-");
+        matplot::plot(q2_v, q3_v, "--");
         matplot::grid(matplot::on);
         matplot::hold(matplot::off);
         matplot::subplot(3, 1, 1);
-        std::vector<double> v0_v;
-        std::vector<double> v1_v;
-        std::vector<double> v2_v;
-        std::vector<double> v3_v;
+        std::vector<double> v0_v; // initial trajectory vel of dof(0)
+        std::vector<double> v1_v; // initial trajectory vel of dof(1)
+        std::vector<double> v2_v; // optimal trajectory vel of dof(0)
+        std::vector<double> v3_v; // optimal trajectory vel of dof(1)
         for (int i = 0; i < t1.size(); i++)
         {
             v0_v.push_back(traj_.evalDerivative(t1[i])(0));
@@ -495,8 +497,8 @@ namespace gsmpl
         matplot::subplot(3, 1, 2);
         for (int i = 0; i < t2.size(); i++)
         {
-            v2_v.push_back(traj.evalDerivative(t2[i])(0) * traj.endTime());
-            v3_v.push_back(traj.evalDerivative(t2[i])(1) * traj.endTime());
+            v2_v.push_back(traj.evalDerivative(t2[i])(0));
+            v3_v.push_back(traj.evalDerivative(t2[i])(1));
         }
         matplot::plot(t2, v2_v, t2, v3_v, "--");
         matplot::xlabel("Time(s)");

@@ -53,9 +53,9 @@ namespace gsmpl
         Eigen::VectorXd create_Lineq() const;
         Eigen::VectorXd create_Uineq() const;
 
-        std::vector<Eigen::VectorXd> OSQP_solver(const Eigen::MatrixXd &Q, const Eigen::VectorXd &q,
-                                                 const Eigen::MatrixXd &A, const Eigen::VectorXd &L,
-                                                 const Eigen::VectorXd &U);
+        std::pair<double, std::vector<Eigen::VectorXd>> OSQP_solver(const Eigen::MatrixXd &Q, const Eigen::VectorXd &q,
+                                                                    const Eigen::MatrixXd &A, const Eigen::VectorXd &L,
+                                                                    const Eigen::VectorXd &U);
         std::vector<Eigen::VectorXd> solution_to_control_points(const OSQPFloat *x) const;
 
         // dBWSequence = [dBWeighted(t_0), ... , dBWeighted(t_m)]
